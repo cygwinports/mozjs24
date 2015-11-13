@@ -1,0 +1,32 @@
+--- origsrc/mozjs-24.2.0/js/src/assembler/wtf/Platform.h	2013-10-29 15:40:26.000000000 -0500
++++ src/mozjs-24.2.0/js/src/assembler/wtf/Platform.h	2015-11-08 13:19:46.017647500 -0600
+@@ -376,6 +376,11 @@
+ #define WTF_OS_AIX 1
+ #endif
+ 
++/* WTF_OS_CYGWIN - Cygwin */
++#ifdef __CYGWIN__
++#define WTF_OS_CYGWIN 1
++#endif
++
+ /* WTF_OS_DARWIN - Any Darwin-based OS, including Mac OS X and iPhone OS */
+ #ifdef __APPLE__
+ #define WTF_OS_DARWIN 1
+@@ -464,6 +469,7 @@
+ /* WTF_OS_UNIX - Any Unix-like system */
+ #if   WTF_OS_AIX              \
+     || WTF_OS_ANDROID          \
++    || WTF_OS_CYGWIN           \
+     || WTF_OS_DARWIN           \
+     || WTF_OS_FREEBSD          \
+     || WTF_OS_HAIKU            \
+--- origsrc/mozjs-24.2.0/js/src/jsdtoa.cpp	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jsdtoa.cpp	2015-11-08 13:19:46.052651900 -0600
+@@ -7,6 +7,7 @@
+ /*
+  * Portable double to alphanumeric string and back converters.
+  */
++#define __STRICT_ANSI__
+ #include "jsdtoa.h"
+ 
+ #include "jstypes.h"

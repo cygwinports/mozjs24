@@ -1,0 +1,192 @@
+--- origsrc/mozjs-24.2.0/js/src/jit/AsmJSSignalHandlers.cpp	2013-10-29 15:40:19.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jit/AsmJSSignalHandlers.cpp	2015-11-08 13:19:46.034649600 -0600
+@@ -125,6 +125,26 @@ using namespace mozilla;
+ # define R13_sig(p) ((p)->uc_mcontext.mc_r13)
+ # define R14_sig(p) ((p)->uc_mcontext.mc_r14)
+ # define R15_sig(p) ((p)->uc_mcontext.mc_r15)
++#elif defined(__CYGWIN__)
++# define XMM_sig(p,i) ((p)->uc_mcontext.fpregs.xmm[i])
++# define EIP_sig(p) ((p)->uc_mcontext.eip)
++# define RIP_sig(p) ((p)->uc_mcontext.rip)
++# define RAX_sig(p) ((p)->uc_mcontext.rax)
++# define RCX_sig(p) ((p)->uc_mcontext.rcx)
++# define RDX_sig(p) ((p)->uc_mcontext.rdx)
++# define RBX_sig(p) ((p)->uc_mcontext.rbx)
++# define RSP_sig(p) ((p)->uc_mcontext.rsp)
++# define RBP_sig(p) ((p)->uc_mcontext.rbp)
++# define RSI_sig(p) ((p)->uc_mcontext.rsi)
++# define RDI_sig(p) ((p)->uc_mcontext.rdi)
++# define R8_sig(p) ((p)->uc_mcontext.r8)
++# define R9_sig(p) ((p)->uc_mcontext.r9)
++# define R10_sig(p) ((p)->uc_mcontext.r10)
++# define R11_sig(p) ((p)->uc_mcontext.r11)
++# define R12_sig(p) ((p)->uc_mcontext.r12)
++# define R13_sig(p) ((p)->uc_mcontext.r13)
++# define R14_sig(p) ((p)->uc_mcontext.r14)
++# define R15_sig(p) ((p)->uc_mcontext.r15)
+ #elif defined(XP_MACOSX)
+ // Mach requires special treatment.
+ #else
+--- origsrc/mozjs-24.2.0/js/src/jit/x64/Architecture-x64.h	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jit/x64/Architecture-x64.h	2015-11-08 13:19:46.038650100 -0600
+@@ -22,7 +22,7 @@ static const uint32_t DOUBLE_STACK_ALIGN
+ //   +8 for double spills
+ static const uint32_t ION_FRAME_SLACK_SIZE     = 24;
+ 
+-#ifdef _WIN64
++#if defined(_WIN64) || defined(__CYGWIN__)
+ static const uint32_t ShadowStackSpace = 32;
+ #else
+ static const uint32_t ShadowStackSpace = 0;
+@@ -52,7 +52,7 @@ class Registers {
+     static const uint32_t AllMask = (1 << Total) - 1;
+ 
+     static const uint32_t ArgRegMask =
+-# if !defined(_WIN64)
++#if !defined(_WIN64) && !defined(__CYGWIN__)
+         (1 << JSC::X86Registers::edi) |
+         (1 << JSC::X86Registers::esi) |
+ # endif
+@@ -65,7 +65,7 @@ class Registers {
+         (1 << JSC::X86Registers::eax) |
+         (1 << JSC::X86Registers::ecx) |
+         (1 << JSC::X86Registers::edx) |
+-# if !defined(_WIN64)
++# if !defined(_WIN64) && !defined(__CYGWIN__)
+         (1 << JSC::X86Registers::esi) |
+         (1 << JSC::X86Registers::edi) |
+ # endif
+@@ -76,7 +76,7 @@ class Registers {
+ 
+     static const uint32_t NonVolatileMask =
+         (1 << JSC::X86Registers::ebx) |
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+         (1 << JSC::X86Registers::esi) |
+         (1 << JSC::X86Registers::edi) |
+ #endif
+@@ -133,7 +133,7 @@ class FloatRegisters {
+     static const uint32_t AllMask = (1 << Total) - 1;
+ 
+     static const uint32_t VolatileMask = 
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+         (1 << JSC::X86Registers::xmm0) |
+         (1 << JSC::X86Registers::xmm1) |
+         (1 << JSC::X86Registers::xmm2) |
+--- origsrc/mozjs-24.2.0/js/src/jit/x64/Assembler-x64.cpp	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jit/x64/Assembler-x64.cpp	2015-11-08 13:19:46.042150600 -0600
+@@ -15,7 +15,7 @@ using namespace js::jit;
+ 
+ ABIArgGenerator::ABIArgGenerator()
+   :
+-#if defined(XP_WIN)
++#if defined(XP_WIN) || defined(__CYGWIN__)
+     regIndex_(0),
+     stackOffset_(ShadowStackSpace),
+ #else
+@@ -29,7 +29,7 @@ ABIArgGenerator::ABIArgGenerator()
+ ABIArg
+ ABIArgGenerator::next(MIRType type)
+ {
+-#if defined(XP_WIN)
++#if defined(XP_WIN) || defined(__CYGWIN__)
+     JS_STATIC_ASSERT(NumIntArgRegs == NumFloatArgRegs);
+     if (regIndex_ == NumIntArgRegs) {
+         current_ = ABIArg(stackOffset_);
+--- origsrc/mozjs-24.2.0/js/src/jit/x64/Assembler-x64.h	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jit/x64/Assembler-x64.h	2015-11-08 13:19:46.046151100 -0600
+@@ -85,7 +85,7 @@ static const MOZ_CONSTEXPR Register Call
+ static const MOZ_CONSTEXPR Register CallTempReg6 = rbp;
+ 
+ // Different argument registers for WIN64
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+ static const MOZ_CONSTEXPR Register IntArgReg0 = rcx;
+ static const MOZ_CONSTEXPR Register IntArgReg1 = rdx;
+ static const MOZ_CONSTEXPR Register IntArgReg2 = r8;
+@@ -131,7 +131,7 @@ static const MOZ_CONSTEXPR FloatRegister
+ 
+ class ABIArgGenerator
+ {
+-#if defined(XP_WIN)
++#if defined(XP_WIN) || defined(__CYGWIN__)
+     unsigned regIndex_;
+ #else
+     unsigned intRegIndex_;
+@@ -705,7 +705,7 @@ PatchJump(CodeLocationJump jump, CodeLoc
+ static inline bool
+ GetIntArgReg(uint32_t intArg, uint32_t floatArg, Register *out)
+ {
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     uint32_t arg = intArg + floatArg;
+ #else
+     uint32_t arg = intArg;
+@@ -729,7 +729,7 @@ GetTempRegForIntArg(uint32_t usedIntArgs
+     // Unfortunately, we have to assume things about the point at which
+     // GetIntArgReg returns false, because we need to know how many registers it
+     // can allocate.
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     uint32_t arg = usedIntArgs + usedFloatArgs;
+ #else
+     uint32_t arg = usedIntArgs;
+@@ -744,7 +744,7 @@ GetTempRegForIntArg(uint32_t usedIntArgs
+ static inline bool
+ GetFloatArgReg(uint32_t intArg, uint32_t floatArg, FloatRegister *out)
+ {
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     uint32_t arg = intArg + floatArg;
+ #else
+     uint32_t arg = floatArg;
+--- origsrc/mozjs-24.2.0/js/src/jit/x64/Trampoline-x64.cpp	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/jit/x64/Trampoline-x64.cpp	2015-11-08 13:19:46.049651500 -0600
+@@ -36,7 +36,7 @@ IonRuntime::generateEnterJIT(JSContext *
+     const Register reg_argv  = IntArgReg2;
+     JS_ASSERT(OsrFrameReg == IntArgReg3);
+ 
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     const Operand token  = Operand(rbp, 16 + ShadowStackSpace);
+     const Operand scopeChain = Operand(rbp, 24 + ShadowStackSpace);
+     const Operand numStackValuesAddr = Operand(rbp, 32 + ShadowStackSpace);
+@@ -59,7 +59,7 @@ IonRuntime::generateEnterJIT(JSContext *
+     masm.push(r13);
+     masm.push(r14);
+     masm.push(r15);
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     masm.push(rdi);
+     masm.push(rsi);
+ 
+@@ -240,7 +240,7 @@ IonRuntime::generateEnterJIT(JSContext *
+     masm.storeValue(JSReturnOperand, Operand(r12, 0));
+ 
+     // Restore non-volatile registers.
+-#if defined(_WIN64)
++#if defined(_WIN64) || defined(__CYGWIN__)
+     masm.movdqa(Operand(rsp, 16 * 0), xmm6);
+     masm.movdqa(Operand(rsp, 16 * 1), xmm7);
+     masm.movdqa(Operand(rsp, 16 * 2), xmm8);
+--- origsrc/mozjs-24.2.0/js/src/yarr/YarrJIT.cpp	2013-10-29 15:40:18.000000000 -0500
++++ src/mozjs-24.2.0/js/src/yarr/YarrJIT.cpp	2015-11-08 17:16:25.050195600 -0600
+@@ -96,7 +96,7 @@ class YarrGenerator : private MacroAssem
+     static const RegisterID returnRegister = X86Registers::eax;
+     static const RegisterID returnRegister2 = X86Registers::edx;
+ #elif WTF_CPU_X86_64
+-# if WTF_PLATFORM_WIN
++# if WTF_OS_WINDOWS || WTF_OS_CYGWIN
+     static const RegisterID input = X86Registers::ecx;
+     static const RegisterID index = X86Registers::edx;
+     static const RegisterID length = X86Registers::r8;
+@@ -113,7 +113,7 @@ class YarrGenerator : private MacroAssem
+ 
+     static const RegisterID returnRegister = X86Registers::eax;
+ 
+-# if !WTF_PLATFORM_WIN
++# if !WTF_OS_WINDOWS && !WTF_OS_CYGWIN
+     // no way to use int128_t as return value on Win64 ABI
+     static const RegisterID returnRegister2 = X86Registers::edx;
+ # endif

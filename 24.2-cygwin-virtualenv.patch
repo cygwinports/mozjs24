@@ -1,0 +1,49 @@
+--- origsrc/mozjs-24.2.0/js/src/build/virtualenv/populate_virtualenv.py	2013-10-29 15:40:23.000000000 -0500
++++ src/mozjs-24.2.0/js/src/build/virtualenv/populate_virtualenv.py	2015-11-08 13:19:46.021147900 -0600
+@@ -44,14 +44,14 @@ class VirtualenvManager(object):
+ 
+     @property
+     def python_path(self):
+-        if sys.platform in ('win32', 'cygwin'):
++        if sys.platform in ('win32'):
+             return os.path.join(self.virtualenv_root, 'Scripts', 'python.exe')
+ 
+         return os.path.join(self.virtualenv_root, 'bin', 'python')
+ 
+     @property
+     def activate_path(self):
+-        if sys.platform in ('win32', 'cygwin'):
++        if sys.platform in ('win32'):
+             return os.path.join(self.virtualenv_root, 'Scripts',
+                 'activate_this.py')
+ 
+--- origsrc/mozjs-24.2.0/js/src/python/virtualenv/virtualenv.py	2013-10-29 15:40:26.000000000 -0500
++++ src/mozjs-24.2.0/js/src/python/virtualenv/virtualenv.py	2015-11-08 13:19:46.060152900 -0600
+@@ -1358,7 +1358,16 @@ def install_python(home_dir, lib_dir, in
+             logger.info('Executable actually exists in %s' % executable)
+         shutil.copyfile(executable, py_executable)
+         make_exe(py_executable)
+-        if is_win or is_cygwin:
++        if is_cygwin:
++            # we need to copy the DLL to enforce that windows will load the correct one.
++            py_executable_dll = 'libpython%s.%s.dll' % (
++                sys.version_info[0], sys.version_info[1])
++            pythondll = os.path.join(os.path.dirname(sys.executable), py_executable_dll)
++            if os.path.exists(pythondll):
++                logger.info('Also created %s' % py_executable_dll)
++                shutil.copyfile(pythondll, os.path.join(os.path.dirname(py_executable), py_executable_dll))
++                shutil.copymode(pythondll, os.path.join(os.path.dirname(py_executable), py_executable_dll))
++        if is_win:
+             pythonw = os.path.join(os.path.dirname(sys.executable), 'pythonw.exe')
+             if os.path.exists(pythonw):
+                 logger.info('Also created pythonw.exe')
+@@ -1469,8 +1478,7 @@ def install_python(home_dir, lib_dir, in
+         py_exe_version_major_minor = 'python%s.%s' % (
+             sys.version_info[0], sys.version_info[1])
+         py_exe_no_version = 'python'
+-        required_symlinks = [ py_exe_no_version, py_exe_version_major,
+-                         py_exe_version_major_minor ]
++        required_symlinks = [ py_exe_no_version, py_exe_version_major ]
+ 
+         py_executable_base = os.path.basename(py_executable)
+ 

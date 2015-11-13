@@ -1,0 +1,22 @@
+--- origsrc/mozjs-24.2.0/js/src/jspubtd.h	2013-12-11 16:22:51.000000000 -0600
++++ src/mozjs-24.2.0/js/src/jspubtd.h	2015-11-08 13:19:46.055652300 -0600
+@@ -61,7 +61,7 @@ typedef ptrdiff_t jsid;
+ #  define JSID_BITS(id) (id)
+ # endif  /* defined(JS_USE_JSID_STRUCT_TYPES) */
+ 
+-#ifdef WIN32
++#if defined(WIN32) || defined(__CYGWIN__)
+ typedef wchar_t   jschar;
+ #else
+ typedef uint16_t  jschar;
+--- origsrc/mozjs-24.2.0/mfbt/HashFunctions.h	2013-10-29 15:40:19.000000000 -0500
++++ src/mozjs-24.2.0/mfbt/HashFunctions.h	2015-11-08 13:19:46.067653800 -0600
+@@ -328,7 +328,7 @@ HashString(const uint16_t* str, size_t l
+  * On Windows, wchar_t (PRUnichar) is not the same as uint16_t, even though it's
+  * the same width!
+  */
+-#ifdef WIN32
++#if defined(WIN32) || defined(__CYGWIN__)
+ MOZ_WARN_UNUSED_RESULT
+ inline uint32_t
+ HashString(const wchar_t* str)

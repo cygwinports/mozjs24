@@ -1,0 +1,62 @@
+NAME="mozjs24"
+VERSION=24.2.0
+RELEASE=1
+CATEGORY="Libs"
+SUMMARY="Mozilla JavaScript engine"
+DESCRIPTION="SpiderMonkey is Mozilla's JavaScript engine written in C/C++."
+HOMEPAGE="http://www.mozilla.org/js/spidermonkey/"
+SRC_URI="ftp://ftp.mozilla.org/pub/mozilla.org/js/mozjs-${VERSION}.tar.bz2"
+SRC_DIR="mozjs-${VERSION}"
+PATCH_URI="
+	24.2-cygwin-build.patch
+	24.2-cygwin-jit.patch
+	24.2-cygwin-virtualenv.patch
+	24.2-cygwin-wchar.patch
+	24.2-cygwin-wtf.patch
+	24.2-perl522.patch
+"
+
+PKG_NAMES="libmozjs24 libmozjs24-devel"
+libmozjs24_SUMMARY="${SUMMARY} (runtime)"
+libmozjs24_CONTENTS="usr/bin/cygmozjs-24.dll usr/share/doc/"
+libmozjs24_devel_SUMMARY="${SUMMARY} (development)"
+libmozjs24_devel_CONTENTS="usr/bin/js24-config usr/include/mozjs-24/
+	usr/lib/libmozjs-24.dll.a usr/lib/pkgconfig/mozjs-24.pc"
+
+DIFF_EXCLUDES="configure"
+
+CYGPORT_USE_UNSTABLE_API=1
+src_unpack_hook() {
+	rm -fr js/src/ctypes/libffi js/src/editline
+}
+
+src_compile() {
+	cd ${S}/js/src
+	autoconf-2.13 || error
+	cd ${B}
+
+	export ac_cv_have_systemtimetofiletime=no
+	export ac_cv_have_getsystemtimeasfiletime=no
+
+	CYGCONF_SOURCE=${S}/js/src
+	PYTHON=/usr/bin/python2.7.exe \
+	cygconf --enable-ctypes --enable-readline --enable-threadsafe \
+		--with-system-nspr --enable-system-ffi
+	cygmake
+}
+
+src_test() {
+	cd ${B}
+	make -k check
+}
+
+src_install() {
+	cd ${B}
+	cyginstall
+
+	mv ${D}/usr/lib/*.dll ${D}/usr/bin/
+	rm ${D}/usr/lib/libmozjs-24.a
+	# statically linked, unused
+	rm ${D}/usr/bin/js24.exe
+}
+DOCS="../../LICENSE ../../README"

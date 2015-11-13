@@ -1,0 +1,133 @@
+--- origsrc/mozjs-24.2.0/js/src/Makefile.in	2013-11-19 13:42:43.000000000 -0600
++++ src/mozjs-24.2.0/js/src/Makefile.in	2015-11-08 13:19:46.014147000 -0600
+@@ -148,7 +148,7 @@ VPATH += $(srcdir)/perf
+ 
+ DASH_R		= -r
+ 
+-ifneq (,$(filter OS2 WINNT,$(OS_ARCH)))
++ifneq (,$(filter Cygwin OS2 WINNT,$(OS_ARCH)))
+ SDK_LIBRARY = $(IMPORT_LIBRARY)
+ else
+ SDK_LIBRARY = $(SHARED_LIBRARY)
+@@ -192,7 +192,7 @@ endif
+ 
+ default::
+ 
+-ifneq (,$(CROSS_COMPILE)$(filter-out WINNT OS2,$(OS_ARCH)))
++ifneq (,$(CROSS_COMPILE)$(filter-out Cygwin WINNT OS2,$(OS_ARCH)))
+ # nsinstall doesn't get built until we enter config/ in the exports phase,
+ # so we'll have to manually ensure it gets built here if we want to use
+ # $(EXPORTS)
+--- origsrc/mozjs-24.2.0/js/src/config/rules.mk	2013-10-29 15:40:26.000000000 -0500
++++ src/mozjs-24.2.0/js/src/config/rules.mk	2015-11-08 13:19:46.025648500 -0600
+@@ -235,7 +235,7 @@ ifdef LIB_IS_C_ONLY
+ MKSHLIB			= $(MKCSHLIB)
+ endif
+ 
+-ifneq (,$(filter OS2 WINNT,$(OS_ARCH)))
++ifneq (,$(filter Cygwin OS2 WINNT,$(OS_ARCH)))
+ IMPORT_LIBRARY		:= $(LIB_PREFIX)$(SHARED_LIBRARY_NAME).$(IMPORT_LIB_SUFFIX)
+ endif
+ 
+@@ -594,7 +594,7 @@ endif
+ #
+ # MINGW32
+ #
+-ifeq ($(OS_ARCH),WINNT)
++ifneq (,$(filter Cygwin WINNT,$(OS_ARCH)))
+ ifdef GNU_CC
+ ifndef IS_COMPONENT
+ DSO_LDOPTS += -Wl,--out-implib -Wl,$(IMPORT_LIBRARY)
+@@ -969,7 +969,7 @@ $(filter-out %.$(LIB_SUFFIX),$(LIBRARY))
+ 	$(if $(filter %.$(LIB_SUFFIX),$(LIBRARY)),,$(RM) $(REAL_LIBRARY) $(EXPORT_LIBRARY:%=%/$(REAL_LIBRARY)))
+ 	$(EXPAND_LIBS_GEN) -o $@ $(OBJS) $(LOBJS) $(SHARED_LIBRARY_LIBS)
+ 
+-ifeq ($(OS_ARCH),WINNT)
++ifneq (,$(filter Cygwin WINNT,$(OS_ARCH)))
+ # Import libraries are created by the rules creating shared libraries.
+ # The rules to copy them to $(DIST)/lib depend on $(IMPORT_LIBRARY),
+ # but make will happily consider the import library before it is refreshed
+--- origsrc/mozjs-24.2.0/js/src/configure.in	2013-12-11 16:22:50.000000000 -0600
++++ src/mozjs-24.2.0/js/src/configure.in	2015-11-08 13:19:46.030649100 -0600
+@@ -839,6 +839,7 @@ if test -n "$CROSS_COMPILE"; then
+         kfreebsd*-gnu) OS_ARCH=GNU_kFreeBSD OS_TARGET=GNU_kFreeBSD ;;
+         gnu*)         OS_ARCH=GNU ;;
+         solaris*)     OS_ARCH=SunOS OS_RELEASE=5 ;;
++        cygwin*)      OS_ARCH=Cygwin OS_TARGET=Cygwin ;;
+         mingw*)       OS_ARCH=WINNT OS_TARGET=WINNT ;;
+         darwin*)      OS_ARCH=Darwin OS_TARGET=Darwin ;;
+     esac
+@@ -877,6 +878,9 @@ HOST_OS_ARCH=`echo $host_os | sed -e 's|
+ #
+ 
+ case "$HOST_OS_ARCH" in
++cygwin*)
++    HOST_OS_ARCH=Cygwin
++    ;;
+ mingw*)
+     HOST_OS_ARCH=WINNT
+     ;;
+@@ -941,6 +945,11 @@ MINGW*_NT*)
+     OS_ARCH=WINNT
+     OS_TARGET=WINNT
+     ;;
++Cygwin*|CYGWIN_NT*)
++    OS_RELEASE=1.7
++    OS_ARCH=Cygwin
++    OS_TARGET=Cygwin
++    ;;
+ AIX)
+     OS_RELEASE=`uname -v`.`uname -r`
+     OS_TEST=${target_cpu}
+@@ -1353,6 +1362,12 @@ dnl ====================================
+ dnl System overrides of the defaults for host
+ dnl ========================================================
+ case "$host" in
++*cygwin*)
++    HOST_CFLAGS="$HOST_CFLAGS -DXP_UNIX"
++    HOST_NSPR_MDCPUCFG='\"md/_cygwin.cfg\"'
++    HOST_OPTIMIZE_FLAGS="${HOST_OPTIMIZE_FLAGS=-O2}"
++    HOST_BIN_SUFFIX=.exe
++    ;;
+ *mingw*)
+     if test -n "$_WIN32_MSVC"; then
+         HOST_AR=lib
+@@ -1622,6 +1637,18 @@ ia64*-hpux*)
+     fi
+     ;;
+ 
++*-cygwin*)
++    DSO_CFLAGS=
++    DSO_PIC_CFLAGS=
++    BIN_SUFFIX=.exe
++    DLL_PREFIX=cyg
++    DLL_SUFFIX=.dll
++    IMPORT_LIB_SUFFIX=dll.a
++    DSO_LDOPTS='-shared'
++    MKSHLIB='$(CXX) $(DSO_LDOPTS) -o $@'
++    MKCSHLIB='$(CC) $(DSO_LDOPTS) -o $@'
++    ;;
++
+ *-mingw*)
+     DSO_CFLAGS=
+     DSO_PIC_CFLAGS=
+@@ -1767,7 +1794,7 @@ ia64*-hpux*)
+     esac
+ 
+     case "$host_os" in
+-    cygwin*|msvc*|mks*)
++    msvc*|mks*)
+         AC_MSG_ERROR([Using a Cygwin build environment is unsupported. Configure cannot check for presence of necessary headers. Please upgrade to MozillaBuild; see https://developer.mozilla.org/en/Windows_Build_Prerequisites.])
+         ;;
+     esac
+--- origsrc/mozjs-24.2.0/js/src/shell/Makefile.in	2013-10-29 15:40:20.000000000 -0500
++++ src/mozjs-24.2.0/js/src/shell/Makefile.in	2015-11-08 13:19:46.064153400 -0600
+@@ -23,7 +23,7 @@ DEFINES         += -DEXPORT_JS_API
+ # on its behalf.
+ DEFINES         += -DIMPL_MFBT
+ 
+-LIBS      = $(NSPR_LIBS) $(EDITLINE_LIBS) $(DEPTH)/$(LIB_PREFIX)js_static.$(LIB_SUFFIX) $(MOZ_ZLIB_LIBS)
++LIBS      = $(DEPTH)/$(LIB_PREFIX)js_static.$(LIB_SUFFIX) $(NSPR_LIBS) $(EDITLINE_LIBS) $(MOZ_ZLIB_LIBS)
+ ifdef MOZ_NATIVE_FFI
+ EXTRA_LIBS += $(MOZ_FFI_LIBS)
+ endif
