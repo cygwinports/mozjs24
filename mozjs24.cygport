@@ -40,8 +40,7 @@ src_compile() {
 
 	CYGCONF_SOURCE=${S}/js/src
 	PYTHON=/usr/bin/python2.7.exe \
-	cygconf --enable-ctypes --enable-readline --enable-threadsafe \
-		--with-system-nspr --enable-system-ffi
+	cygconf --enable-readline --enable-threadsafe --with-system-nspr
 	cygmake
 }
 
@@ -59,4 +58,4 @@ src_install() {
 	# statically linked, unused
 	rm ${D}/usr/bin/js24.exe
 }
-DOCS="../../LICENSE ../../README"
+DOCS="LICENSE README"
